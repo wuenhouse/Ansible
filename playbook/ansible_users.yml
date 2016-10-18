@@ -133,3 +133,26 @@
         - "athena hard nofile 10240"
 
     - lineinfile: dest=/etc/bashrc line='#Add for pyspark Environment, Athena'
+
+    - command: find /opt/cloudera/parcels/CDH/lib/spark/python/lib/ -name py4j*.zip
+      register: result
+      ignore_errors: True
+
+    - command: readlink -e /opt/cloudera/parcels/CDH/lib/spark
+      register: spark_path
+      ignore_errors: True
+
+    - lineinfile: dest=/etc/bashrc line='export SPARK_HOME={{ spark_path.stdout }}'
+      when: spark_path|succeeded
+
+    - lineinfile: dest=/etc/bashrc line='export PYTHONPATH={{ spark_path.stdout }}/python:{{ spark_path.stdout }}/python/build:{{ result.stdout }}:$PYTHONPATH'
+      when: 
+        - spark_path|succeeded
+        - result|succeeded
+
+    - command: find /usr/java/ -name *-cloudera
+      register: pathjava
+      ignore_errors: True
+
+    - lineinfile: dest=/etc/bashrc line='export JAVA_HOME={{ pathjava.stdout }}'
+      when: pathjava|succeeded
