@@ -1,0 +1,135 @@
+#####
+## Author: Wendell
+## Date: 2016/10/14
+##
+## Replace origin step 5.1 and step 5.2 and 5.3 5.4
+##
+######
+
+- hosts: local
+  user: wuenhouse
+  become: True
+  tasks:
+    # add users athena, pandora, hestia, and all under the group migo -----------5-1
+    - user: name=migo
+    - user: name={{ item }} groups=migo
+      with_items:
+        - athena
+        - pandora
+        - hestia
+        - yarn
+        - hdfs
+    # create folder -------------- 5-2
+    - name: ceate folder data migo and data migo tmp
+      become: True
+      file: path=/data/migo/tmp state=directory owner=athena group=migo mode=0775
+
+    - name: ceate folder for ta
+      become: True
+      file: path=/data/migo/{{ item }} owner=athena group=migo mode=0777 state=directory
+      with_items:
+        - ta
+        - ta_finish
+        - ta_backup
+
+    - name: deploy ssh #-----------------5-3
+      become: True
+      file: path=/home/{{ item }}/.ssh owner={{ item }} group={{ item }} mode=0700 state=directory
+      with_items:
+        - athena
+        - migo
+
+    - copy: src=/data/migo/deploy/hestia/util/makefile/{{ item }}_ssh/ dest=/home/{{ item }}/.ssh owner={{ item }} group={{ item }} mode=0644
+      become: True
+      with_items:
+        - athena
+        - migo
+
+    - name: change mode
+      file: path=/home/{{ item }}/.ssh/ mode=0700 state=directory
+      with_items:
+        - athena
+        - migo
+
+    - name: scp file to /data/migo
+      shell: cp -pr /data/migo/deploy/{{ item }}  /data/migo
+      with_items:
+        - athena
+        - hestia
+
+    - name: scp python code to /data/migo/lib/util and create soft link for athena_vaiable.py
+      shell: cp /data/migo/deploy/athena/modules/*/bin/*py /data/migo/athena/lib/util 
+
+    - name: reset ln
+      stat: path={{variable_lk}} 
+      register: st
+
+    - command: unlink {{variable_lk}}
+      become: True
+      when: st.stat.islnk is defined
+
+    - name: softlink create
+      become: True
+      file: src=/data/migo/athena/lib/athena_variable_{{ words }}.py dest={{ variable_lk }} state=link owner=athena group=migo
+
+    - name: replace source_cfg
+      become: True
+      script: update_paramemter.sh {{ words }}
+      when: 
+        - words == "params"
+
+    - name: reset owner to athena:migo
+      file: path=/data/migo owner=athena group=migo recurse=True state=directory
+
+    - name: patch luigi
+      file: path=/etc/luigi owner=athena group=migo recurse=True state=directory
+
+    - copy: src=/data/migo/deploy/hestia/util/makefile/client.cfg dest=/etc/luigi/ owner=athena group=migo
+
+    - name: Patch for Luigi
+      stat: path=/usr/lib/python2.7/site-packages/luigi/hadoop.py.bak
+      register: r
+
+    - file: path=/usr/lib/python2.7/site-packages/luigi/hadoop.py.bak state=absent
+      become: True
+      when: r.stat.exists == True
+
+    - name: Patch for Luigi
+      stat: path=/usr/lib/python2.7/site-packages/luigi/hadoop.py
+      register: r
+
+    - name: backup hadoop.py
+      command: mv /usr/lib/python2.7/site-packages/luigi/hadoop.py /usr/lib/python2.7/site-packages/luigi/hadoop.py.bak
+      when : r.stat.exists == True
+
+    - name: hdfs patch
+      stat: path=/usr/lib/python2.7/site-packages/luigi/hdfs.py.bak
+      register: f
+
+    - file: path=/usr/lib/python2.7/site-packages/luigi/hdfs.py.bak state=absent
+      become: True
+      when: f.stat.exists == True
+
+    - name: Patch for hdfs
+      stat: path=/usr/lib/python2.7/site-packages/luigi/hdfs.py
+      register: r
+
+    - name: backup hdfs.py
+      command: mv /usr/lib/python2.7/site-packages/luigi/hdfs.py /usr/lib/python2.7/site-packages/luigi/hdfs.py.bak
+      when: r.stat.exists == True
+
+    - name: cp all patch .py to luigi folder
+      become: True
+      command: cp /data/migo/deploy/athena/patch/{{ item }} /usr/lib/python2.7/site-packages/luigi/
+      with_items:
+        - hadoop.py
+        - hdfs.py
+
+    - name: set limit config
+      lineinfile: dest=/etc/security/limit.conf line={{ item }}
+      become: True
+      with_items:
+        - "athena soft nofile 4096"
+        - "athena hard nofile 10240"
+
+    - lineinfile: dest=/etc/bashrc line='#Add for pyspark Environment, Athena'
