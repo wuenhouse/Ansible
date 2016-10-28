@@ -1,0 +1,33 @@
+- hosts: azclient
+  user: wuenhouse
+  become: True
+  tasks:
+    # install development tools
+    - name: install the Development tools package group
+      yum: name="@Development tools" state=present
+
+    # install development env
+    - name: install yum depency lib
+      yum: name={{ item }} state=latest
+      with_items:
+        - openssl-devel
+        - bzip2-devel
+        - ncurses-devel
+        - sqlite-devel
+        - zlib-devel
+
+    - easy_install: name=pip state=latest
+    # python modules install 
+    - pip: name={{ item }}
+      with_items:
+        - config
+        - docutils
+        - lockfile
+        - python-daemon
+        - numpy
+        - pyinotify
+        - tornado
+        - requests
+        - pymongo==2.8
+        - luigi==1.0.19
+        - scipy

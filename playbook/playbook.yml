@@ -1,0 +1,25 @@
+- hosts: local
+  user: wuenhouse
+  sudo: True
+  roles:
+    - ocean.git
+    - { role: bfmartin.ssh_known_hosts, host: github.com }
+  tasks:
+    - name: clone pandora project from git
+      sudo: False
+      git: repo={{ project_git_repo }} dest={{ project_source_path }} accept_hostkey=True
+
+    ## add users athena, pandora, hestia, and all under the group migo
+    - user: name=migo
+    - user: name=athena groups=migo
+    - user: name=pandora groups=migo
+    - user: name=hestia groups=migo
+
+    - easy_install: name=pip state=latest
+    ## python modules install
+    - pip: name="{{ python_packages_to_install | join('') }}"
+
+  vars:
+    - project_git_repo: git@github.com:wuenhouse/Angular.git
+    - project_source_path: /tmp/deploy
+    - python_packages_to_install: "config docutils lockfile python-daemon numpy pyinotify tornado requests"

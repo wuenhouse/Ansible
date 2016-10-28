@@ -1,0 +1,8 @@
+- src: ocean.git
+  path: roles/
+
+- src: bfmartin.ssh_known_hosts
+  path: roles/
+
+- src: tcosta84.yum
+  path: roles/

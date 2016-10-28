@@ -1,0 +1,23 @@
+- hosts: azclient
+  user: wuenhouse
+  become: True
+  roles:
+    - ocean.git
+    - { role: bfmartin.ssh_known_hosts, host: github.com, gitlab.migosoft.com }
+  tasks:
+    - name: clone pandora project from git
+      become: False
+      git: repo={{ project_git_repo }} dest={{ project_source_path }} accept_hostkey=True
+
+    ## add users athena, pandora, hestia, and all under the group migo
+    - user: name=migo
+    - user: name={{ item }} groups=migo
+      with_items:
+        - athena
+        - pandora
+        - hestia
+
+  vars:
+    - project_git_repo: git@github.com:wuenhouse/Angular.git
+    - project_source_path: /tmp/deploy
+
